@@ -1,0 +1,69 @@
+# ============================================
+# BASE STAGE
+# ============================================
+FROM node:20-alpine AS base
+RUN apk add --no-cache libc6-compat python3 make g++
+WORKDIR /app
+
+# ============================================
+# DEPENDENCIES STAGE
+# ============================================
+FROM base AS deps
+COPY package*.json ./
+COPY apps/api/package*.json ./apps/api/
+COPY packages/types/package*.json ./packages/types/
+RUN npm install 
+
+# ============================================
+# DEVELOPMENT STAGE
+# ============================================
+FROM base AS development
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+EXPOSE 4000
+CMD ["npm", "run", "dev", "--workspace=apps/api"]
+
+# ============================================
+# BUILDER STAGE
+# ============================================
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# Generate Prisma Client
+RUN cd apps/api && npx prisma generate
+
+# Build application
+RUN npm run build --workspace=apps/api
+
+# ============================================
+# PRODUCTION STAGE
+# ============================================
+FROM base AS production
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 apiuser
+
+# Copy built application
+COPY --from=builder --chown=apiuser:nodejs /app/apps/api/dist ./dist
+COPY --from=builder --chown=apiuser:nodejs /app/apps/api/package*.json ./
+COPY --from=builder --chown=apiuser:nodejs /app/apps/api/prisma ./prisma
+COPY --from=builder --chown=apiuser:nodejs /app/node_modules ./node_modules
+
+# Create logs directory
+RUN mkdir -p logs && chown apiuser:nodejs logs
+
+USER apiuser
+
+EXPOSE 4000
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:4000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+CMD ["node", "dist/main.js"]

@@ -1,0 +1,85 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// TASK MODEL
+// ============================================
+model Task {
+  id                  String     @id @default(cuid())
+  title               String
+  dueDate             DateTime?
+  priority            Priority   @default(MEDIUM)
+  status              TaskStatus @default(ACTIVE)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  completedAt         DateTime?
+  focusSessionsCount  Int        @default(0)
+
+  // Relationships
+  sessions            FocusSession[]
+
+  @@index([status])
+  @@index([dueDate])
+  @@index([priority])
+  @@index([completedAt])
+  @@index([createdAt])
+  @@index([status, priority, dueDate, createdAt], name: "next_task_idx")
+  @@map("tasks")
+}
+
+// ============================================
+// FOCUS SESSION MODEL
+// ============================================
+model FocusSession {
+  id         String    @id @default(cuid())
+  taskId     String?
+  startedAt  DateTime  @default(now())
+  endedAt    DateTime?
+  duration   Int       // in seconds
+  completed  Boolean   @default(false)
+
+  // Relationships
+  task       Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([startedAt])
+  @@index([taskId])
+  @@map("focus_sessions")
+}
+
+// ============================================
+// DAILY STATS MODEL
+// ============================================
+model DailyStat {
+  id              String   @id @default(cuid())
+  date            DateTime @db.Date
+  tasksCompleted  Int      @default(0)
+  focusSessions   Int      @default(0)
+  focusMinutes    Int      @default(0)
+  streakCount     Int      @default(0)
+
+  @@unique([date])
+  @@index([date])
+  @@map("daily_stats")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TaskStatus {
+  ACTIVE
+  COMPLETED
+  DELETED
+}

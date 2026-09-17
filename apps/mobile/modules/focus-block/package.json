@@ -1,0 +1,11 @@
+{
+  "name": "react-native-focus-block",
+  "version": "1.0.0",
+  "description": "Android app-blocking native module for FocusFlow focus mode",
+  "main": "index.js",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  }
+}

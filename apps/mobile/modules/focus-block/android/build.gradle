@@ -1,0 +1,20 @@
+apply plugin: 'com.android.library'
+
+android {
+    namespace 'com.focusflow.focusblock'
+    compileSdk 36
+
+    defaultConfig {
+        minSdk 23
+        targetSdk 36
+    }
+}
+
+repositories {
+    mavenCentral()
+    google()
+}
+
+dependencies {
+    implementation 'com.facebook.react:react-android:+'
+}
